@@ -49,7 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           />
         </svg>
       ),
-      badge: "100+",
+      badge: "Official",
     },
     {
       name: "Voice Cloning",

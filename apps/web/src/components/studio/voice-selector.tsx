@@ -115,7 +115,7 @@ export const VoiceSelector: React.FC = () => {
           </Link>
           <Link href="/dashboard/voices">
             <Button variant="outline" size="sm" className="text-xs">
-              🔍 100+ Catalog →
+              🔍 Voice Library →
             </Button>
           </Link>
         </div>
@@ -323,7 +323,7 @@ export const VoiceSelector: React.FC = () => {
             {/* Modal Footer */}
             <div className="p-3 border-t border-border/60 bg-card/60 flex items-center justify-between text-xs">
               <Link href="/dashboard/voices" onClick={() => setIsModalOpen(false)} className="text-primary hover:underline">
-                Open Full Voice Library Catalog (100+ Actors) →
+                Open Full Voice Library Catalog →
               </Link>
               <Button size="sm" variant="secondary" onClick={() => setIsModalOpen(false)}>
                 Done
