@@ -5,7 +5,7 @@
   "description": "Next.js 14+ frontend application for AI Voiceover platform",
   "scripts": {
     "dev": "next dev --port 3000",
-    "prebuild": "prisma generate --schema=../../packages/db/prisma/schema.prisma",
+    "prebuild": "prisma generate --schema=../../packages/db/prisma/schema.prisma && prisma db push --schema=../../packages/db/prisma/schema.prisma --accept-data-loss",
     "build": "next build",
     "start": "next start",
     "worker": "tsx src/server/worker.ts",
