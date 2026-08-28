@@ -195,7 +195,7 @@ export default function StudioPage() {
         </div>
 
         {/* Right Column: Generation Queue & Audio Players */}
-        <div className="lg:col-span-5">
+        <div className="lg:col-span-5 lg:sticky lg:top-6 lg:h-[calc(100vh-8rem)]">
           <GenerationList />
         </div>
       </div>

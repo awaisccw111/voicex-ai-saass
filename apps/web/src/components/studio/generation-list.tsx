@@ -62,14 +62,15 @@ export const GenerationList: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="h-full flex flex-col space-y-3">
+      {/* Header */}
+      <div className="flex items-center justify-between shrink-0">
         <div>
-          <h2 className="text-lg font-bold text-foreground tracking-tight">
+          <h2 className="text-base sm:text-lg font-bold text-foreground tracking-tight">
             Generation Queue & Audio Player
           </h2>
           <p className="text-xs text-muted-foreground">
-            Real-time status of your neural synthesis jobs
+            {generations.length} synthesized voice clips
           </p>
         </div>
 
@@ -91,44 +92,45 @@ export const GenerationList: React.FC = () => {
         </button>
       </div>
 
-      {/* Loading Skeleton */}
-      {isLoadingHistory && generations.length === 0 && (
-        <div className="space-y-3">
-          {[1, 2, 3].map((idx) => (
-            <Card key={idx} className="border-border/60 bg-card/40 p-4 animate-pulse">
-              <div className="flex items-center justify-between mb-3">
-                <div className="h-4 w-32 bg-muted rounded" />
-                <div className="h-4 w-16 bg-muted rounded" />
-              </div>
-              <div className="h-3 w-full bg-muted/60 rounded mb-2" />
-              <div className="h-3 w-3/4 bg-muted/40 rounded" />
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Empty State */}
-      {!isLoadingHistory && generations.length === 0 && (
-        <Card className="border-dashed border-border/80 bg-card/30 p-8 text-center">
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto mb-3">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.8}
-                d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"
-              />
-            </svg>
+      {/* Scrollable Fixed Box Container */}
+      <div className="flex-1 overflow-y-auto pr-1.5 space-y-3 scrollbar-thin max-h-[calc(100vh-14rem)]">
+        {/* Loading Skeleton */}
+        {isLoadingHistory && generations.length === 0 && (
+          <div className="space-y-3">
+            {[1, 2, 3].map((idx) => (
+              <Card key={idx} className="border-border/60 bg-card/40 p-4 animate-pulse">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="h-4 w-32 bg-muted rounded" />
+                  <div className="h-4 w-16 bg-muted rounded" />
+                </div>
+                <div className="h-3 w-full bg-muted/60 rounded mb-2" />
+                <div className="h-3 w-3/4 bg-muted/40 rounded" />
+              </Card>
+            ))}
           </div>
-          <h3 className="font-semibold text-sm text-foreground">No generation jobs yet</h3>
-          <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
-            Write a script on the left and click &quot;Synthesize Voiceover&quot; to enqueue your first audio clip.
-          </p>
-        </Card>
-      )}
+        )}
 
-      {/* Generation Queue List */}
-      <div className="space-y-3">
+        {/* Empty State */}
+        {!isLoadingHistory && generations.length === 0 && (
+          <Card className="border-dashed border-border/80 bg-card/30 p-8 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto mb-3">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.8}
+                  d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"
+                />
+              </svg>
+            </div>
+            <h3 className="font-semibold text-sm text-foreground">No generation jobs yet</h3>
+            <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
+              Write a script on the left and click &quot;Synthesize Voiceover&quot; to enqueue your first audio clip.
+            </p>
+          </Card>
+        )}
+
+        {/* Generation Queue List */}
         {generations.map((gen) => {
           const voice = PRESET_VOICES.find((v) => v.id === gen.voiceId);
           const isPlaying = playingId === gen.id;
