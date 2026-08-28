@@ -78,17 +78,21 @@ export async function generateFishAudioTTS(
   }
 
   try {
+    const model = process.env.FISH_AUDIO_MODEL ?? "s2.1-pro-free";
+
     const response = await fetch("https://api.fish.audio/v1/tts", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        model,
       },
       body: JSON.stringify({
         text,
         reference_id: voiceId,
         format,
         latency: "normal",
+        model,
       }),
     });
 
