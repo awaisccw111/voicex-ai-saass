@@ -136,44 +136,127 @@ export async function POST(req: Request) {
       }),
     ]);
 
-    // Enqueue job to BullMQ
-    const job = await voiceGenerationQueue.add(
-      "generate-speech",
-      {
-        generationId: generation.id,
-        userId,
-        text,
-        voiceId,
-        format,
-        creditsUsed: requiredCredits,
-        speed,
-        pitch,
-      },
-      {
-        jobId: `gen-${generation.id}`,
-      },
-    );
+    // Attempt to queue via BullMQ or execute direct serverless synthesis
+    let isQueued = false;
+    let jobId = `gen-${generation.id}`;
 
-    // Link BullMQ Job ID to database record
-    await prisma.voiceGeneration.update({
-      where: { id: generation.id },
-      data: { jobId: String(job.id) },
-    });
-
-    return NextResponse.json(
-      {
-        success: true,
-        data: {
+    try {
+      const job = await voiceGenerationQueue.add(
+        "generate-speech",
+        {
           generationId: generation.id,
-          jobId: job.id,
-          status: "PENDING",
-          creditsDeducted: requiredCredits,
-          creditsRemaining: updatedUser.credits,
-          createdAt: generation.createdAt.toISOString(),
+          userId,
+          text,
+          voiceId,
+          format,
+          creditsUsed: requiredCredits,
+          speed,
+          pitch,
         },
-      },
-      { status: 202 }, // 202 Accepted for async processing
-    );
+        {
+          jobId,
+        },
+      );
+      isQueued = true;
+      jobId = String(job.id);
+    } catch {
+      // Redis unavailable -> Execute serverless direct synthesis
+    }
+
+    if (isQueued) {
+      // Link BullMQ Job ID to database record
+      await prisma.voiceGeneration.update({
+        where: { id: generation.id },
+        data: { jobId },
+      });
+
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            generationId: generation.id,
+            jobId,
+            status: "PENDING",
+            creditsDeducted: requiredCredits,
+            creditsRemaining: updatedUser.credits,
+            createdAt: generation.createdAt.toISOString(),
+          },
+        },
+        { status: 202 },
+      );
+    } else {
+      // Direct serverless synthesis fallback
+      try {
+        const { generateFishAudioTTS } = await import("@/server/fish-audio");
+        const { uploadAudioBuffer } = await import("@/server/storage");
+
+        const ttsResult = await generateFishAudioTTS({
+          text,
+          voiceId,
+          format,
+          speed,
+        });
+
+        const filename = `${generation.id}.${format}`;
+        const audioUrl = await uploadAudioBuffer(
+          ttsResult.audioBuffer,
+          filename,
+          ttsResult.contentType,
+        );
+
+        const completedGen = await prisma.voiceGeneration.update({
+          where: { id: generation.id },
+          data: {
+            status: GenerationStatus.COMPLETED,
+            audioUrl,
+            durationSeconds: ttsResult.durationSeconds,
+            characterCount: text.length,
+          },
+        });
+
+        return NextResponse.json(
+          {
+            success: true,
+            data: {
+              generationId: completedGen.id,
+              status: "COMPLETED",
+              audioUrl: completedGen.audioUrl,
+              durationSeconds: completedGen.durationSeconds,
+              creditsDeducted: requiredCredits,
+              creditsRemaining: updatedUser.credits,
+              createdAt: completedGen.createdAt.toISOString(),
+            },
+          },
+          { status: 200 },
+        );
+      } catch (synthError: unknown) {
+        // Refund credits on synthesis failure
+        await prisma.$transaction([
+          prisma.user.update({
+            where: { id: userId },
+            data: { credits: { increment: requiredCredits } },
+          }),
+          prisma.voiceGeneration.update({
+            where: { id: generation.id },
+            data: {
+              status: GenerationStatus.FAILED,
+              errorMessage:
+                synthError instanceof Error ? synthError.message : "Synthesis failed",
+            },
+          }),
+          prisma.creditTransaction.create({
+            data: {
+              userId,
+              amount: requiredCredits,
+              type: TransactionType.REFUND,
+              description: `Refund for failed synthesis ${generation.id}`,
+            },
+          }),
+        ]);
+
+        throw synthError;
+      }
+    }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal generation failure";
     // eslint-disable-next-line no-console
