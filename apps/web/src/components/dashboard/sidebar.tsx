@@ -64,7 +64,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           />
         </svg>
       ),
-      badge: "NEW",
+      badge: userTier === "FREE" ? "PRO" : "UNLOCKED",
     },
     {
       name: "Dashboard Overview",

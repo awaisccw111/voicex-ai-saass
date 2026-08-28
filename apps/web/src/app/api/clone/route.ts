@@ -15,12 +15,24 @@ export async function GET() {
       );
     }
 
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, tier: true, credits: true },
+    });
+
     const clonedVoices = await prisma.clonedVoice.findMany({
       where: { userId: session.user.id },
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json({ success: true, data: clonedVoices });
+    return NextResponse.json({
+      success: true,
+      data: {
+        clonedVoices,
+        tier: user?.tier ?? "FREE",
+        isUnlocked: user?.tier !== "FREE",
+      },
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to fetch cloned voices";
     return NextResponse.json(
@@ -42,18 +54,40 @@ export async function POST(req: Request) {
 
     const userId = session.user.id;
 
-    // Check user credit balance
+    // Check user tier & credit balance
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, credits: true },
+      select: { id: true, credits: true, tier: true },
     });
 
-    if (!user || user.credits < CLONE_CREDIT_COST) {
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: { message: "User not found", code: "USER_NOT_FOUND" } },
+        { status: 404 },
+      );
+    }
+
+    // Require Upgrade to Creator, Pro, or Enterprise
+    if (user.tier === "FREE") {
       return NextResponse.json(
         {
           success: false,
           error: {
-            message: `Insufficient credits. Voice cloning requires ${CLONE_CREDIT_COST} credits. Available: ${user?.credits ?? 0}.`,
+            message:
+              "AI Voice Cloning is an exclusive feature available on Creator, Pro, and Enterprise plans. Please upgrade your plan to unlock custom voice cloning.",
+            code: "UPGRADE_REQUIRED",
+          },
+        },
+        { status: 403 },
+      );
+    }
+
+    if (user.credits < CLONE_CREDIT_COST) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            message: `Insufficient credits. Voice cloning requires ${CLONE_CREDIT_COST} credits. Available: ${user.credits}.`,
             code: "INSUFFICIENT_CREDITS",
           },
         },

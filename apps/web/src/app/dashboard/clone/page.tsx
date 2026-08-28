@@ -45,19 +45,23 @@ export default function VoiceCloningPage() {
   const [isCloning, setIsCloning] = React.useState(false);
   const [clonedVoices, setClonedVoices] = React.useState<readonly ClonedVoiceItem[]>([]);
   const [isLoadingVoices, setIsLoadingVoices] = React.useState(true);
+  const [userTier, setUserTier] = React.useState<string>("FREE");
 
   const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
   const audioChunksRef = React.useRef<Blob[]>([]);
   const timerRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch existing cloned voices
+  const isUnlocked = userTier !== "FREE";
+
+  // Fetch existing cloned voices & tier
   const fetchClonedVoices = React.useCallback(async () => {
     try {
       setIsLoadingVoices(true);
       const res = await fetch("/api/clone");
       const data = await res.json();
-      if (res.ok && data.success && Array.isArray(data.data)) {
-        setClonedVoices(data.data);
+      if (res.ok && data.success && data.data) {
+        setClonedVoices(data.data.clonedVoices ?? []);
+        setUserTier(data.data.tier ?? "FREE");
       }
     } catch {
       // Ignore
@@ -72,6 +76,11 @@ export default function VoiceCloningPage() {
 
   // Start Mic Recording
   const startRecording = async () => {
+    if (!isUnlocked) {
+      toast.error("Please upgrade to Creator, Pro, or Enterprise to unlock Voice Cloning.");
+      return;
+    }
+
     try {
       audioChunksRef.current = [];
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -88,7 +97,6 @@ export default function VoiceCloningPage() {
         const blob = new Blob(audioChunksRef.current, { type: "audio/wav" });
         setAudioBlob(blob);
         setAudioUrl(URL.createObjectURL(blob));
-        // Stop stream tracks
         stream.getTracks().forEach((track) => track.stop());
       };
 
@@ -118,6 +126,11 @@ export default function VoiceCloningPage() {
 
   // File Upload Handler
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isUnlocked) {
+      toast.error("Please upgrade to Creator, Pro, or Enterprise to unlock Voice Cloning.");
+      return;
+    }
+
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
@@ -131,6 +144,12 @@ export default function VoiceCloningPage() {
 
   // Submit Voice Cloning
   const handleCloneSubmit = async () => {
+    if (!isUnlocked) {
+      toast.error("Voice Cloning is an exclusive feature. Please upgrade your plan.");
+      router.push("/dashboard/settings");
+      return;
+    }
+
     if (!voiceName.trim()) {
       toast.error("Please enter a name for your custom cloned voice.");
       return;
@@ -200,8 +219,8 @@ export default function VoiceCloningPage() {
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
               Zero-Shot AI Voice Cloning
             </h1>
-            <Badge variant="glow" size="sm">
-              Fish Audio S2.1 Pro
+            <Badge variant={isUnlocked ? "glow" : "secondary"} size="sm">
+              {isUnlocked ? `${userTier} Plan Unlocked` : "PRO Feature"}
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
@@ -209,22 +228,80 @@ export default function VoiceCloningPage() {
           </p>
         </div>
 
-        <Link href="/dashboard/studio">
-          <Button variant="outline" size="md">
-            Open Studio Workspace →
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          {!isUnlocked && (
+            <Link href="/dashboard/settings">
+              <Button variant="primary" size="md">
+                ⭐ Upgrade Plan to Unlock
+              </Button>
+            </Link>
+          )}
+          <Link href="/dashboard/studio">
+            <Button variant="outline" size="md">
+              Studio Workspace →
+            </Button>
+          </Link>
+        </div>
       </div>
+
+      {/* Upgrade Banner for Free Users */}
+      {!isUnlocked && (
+        <div className="p-6 rounded-2xl border border-primary/40 bg-gradient-to-r from-primary/15 via-accent/10 to-card shadow-glow space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🔒</span>
+                <h3 className="font-bold text-lg text-foreground">
+                  AI Voice Cloning is Available on Creator, Pro, & Enterprise Plans
+                </h3>
+              </div>
+              <p className="text-xs text-muted-foreground max-w-2xl leading-relaxed">
+                Upgrade to any of our 3 paid plans to unlock unlimited zero-shot voice cloning, custom neural model generation, and commercial broadcast licensing.
+              </p>
+            </div>
+
+            <Link href="/dashboard/settings" className="shrink-0">
+              <Button variant="primary" size="lg">
+                View Upgrade Plans (from $19/mo) →
+              </Button>
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-border/40 text-xs">
+            <div className="p-3 rounded-xl bg-background/50 border border-border/40">
+              <span className="font-bold text-foreground block">Creator Plan ($19/mo)</span>
+              <span className="text-muted-foreground text-[11px]">50k Credits/mo • 5 Voice Clones</span>
+            </div>
+            <div className="p-3 rounded-xl bg-background/50 border border-primary/40 shadow-sm">
+              <span className="font-bold text-primary block">Pro Plan ($49/mo)</span>
+              <span className="text-muted-foreground text-[11px]">150k Credits/mo • Unlimited Clones</span>
+            </div>
+            <div className="p-3 rounded-xl bg-background/50 border border-border/40">
+              <span className="font-bold text-foreground block">Enterprise (Custom)</span>
+              <span className="text-muted-foreground text-[11px]">Unlimited Credits • Dedicated Models</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Voice Cloning Form */}
         <div className="lg:col-span-7 space-y-6">
-          <Card className="border-border/60 bg-card/70 backdrop-blur-md">
+          <Card className={`border-border/60 bg-card/70 backdrop-blur-md ${!isUnlocked ? "opacity-75" : ""}`}>
             <CardHeader className="pb-4">
-              <CardTitle>1. Audio Source Sample</CardTitle>
-              <CardDescription>
-                Record your voice directly or upload a clean voice audio clip (10–60 seconds recommended).
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>1. Audio Source Sample</CardTitle>
+                  <CardDescription>
+                    Record your voice directly or upload a clean voice audio clip (10–60 seconds recommended).
+                  </CardDescription>
+                </div>
+                {!isUnlocked && (
+                  <Badge variant="secondary" size="sm">
+                    🔒 Plan Upgrade Required
+                  </Badge>
+                )}
+              </div>
             </CardHeader>
 
             <CardContent className="space-y-5">
@@ -301,7 +378,9 @@ export default function VoiceCloningPage() {
                       </p>
                     ) : (
                       <p className="text-xs text-muted-foreground">
-                        Click below to start recording. Speak naturally in a quiet room.
+                        {isUnlocked
+                          ? "Click below to start recording. Speak naturally in a quiet room."
+                          : "Upgrade your plan above to enable live microphone voice cloning."}
                       </p>
                     )}
                   </div>
@@ -312,7 +391,12 @@ export default function VoiceCloningPage() {
                         ⏹ Stop Recording
                       </Button>
                     ) : (
-                      <Button variant="primary" size="md" onClick={startRecording}>
+                      <Button
+                        variant="primary"
+                        size="md"
+                        onClick={startRecording}
+                        disabled={!isUnlocked}
+                      >
                         🎙️ Start Recording
                       </Button>
                     )}
@@ -328,11 +412,14 @@ export default function VoiceCloningPage() {
                     id="voice-upload"
                     accept="audio/mp3,audio/wav,audio/m4a,audio/webm,audio/ogg"
                     onChange={handleFileUpload}
+                    disabled={!isUnlocked}
                     className="hidden"
                   />
                   <label
-                    htmlFor="voice-upload"
-                    className="cursor-pointer flex flex-col items-center gap-2 hover:opacity-80 transition-opacity"
+                    htmlFor={isUnlocked ? "voice-upload" : undefined}
+                    className={`flex flex-col items-center gap-2 transition-opacity ${
+                      isUnlocked ? "cursor-pointer hover:opacity-80" : "opacity-60 cursor-not-allowed"
+                    }`}
                   >
                     <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                       <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -343,7 +430,9 @@ export default function VoiceCloningPage() {
                       {selectedFile ? selectedFile.name : "Click to select audio file"}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      Supports MP3, WAV, M4A, WEBM (Max 25MB)
+                      {isUnlocked
+                        ? "Supports MP3, WAV, M4A, WEBM (Max 25MB)"
+                        : "Upgrade to Creator or Pro to upload audio files"}
                     </span>
                   </label>
                 </div>
@@ -381,7 +470,8 @@ export default function VoiceCloningPage() {
                     placeholder="e.g. My Podcast Voice, Awais Custom..."
                     value={voiceName}
                     onChange={(e) => setVoiceName(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary outline-none"
+                    disabled={!isUnlocked}
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary outline-none disabled:opacity-50"
                   />
                 </div>
 
@@ -393,7 +483,8 @@ export default function VoiceCloningPage() {
                     <select
                       value={language}
                       onChange={(e) => setLanguage(e.target.value)}
-                      className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary outline-none"
+                      disabled={!isUnlocked}
+                      className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary outline-none disabled:opacity-50"
                     >
                       <option value="en-US">English (United States) 🇺🇸</option>
                       <option value="en-GB">English (United Kingdom) 🇬🇧</option>
@@ -414,7 +505,8 @@ export default function VoiceCloningPage() {
                     <select
                       value={gender}
                       onChange={(e) => setGender(e.target.value)}
-                      className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary outline-none"
+                      disabled={!isUnlocked}
+                      className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary outline-none disabled:opacity-50"
                     >
                       <option value="neutral">Neutral</option>
                       <option value="male">Male</option>
@@ -432,7 +524,8 @@ export default function VoiceCloningPage() {
                     placeholder="e.g. Warm conversational tone for YouTube videos"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary outline-none"
+                    disabled={!isUnlocked}
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary outline-none disabled:opacity-50"
                   />
                 </div>
               </div>
@@ -444,15 +537,23 @@ export default function VoiceCloningPage() {
                 <span className="font-bold text-primary font-mono text-sm">50 Credits</span>
               </div>
 
-              <Button
-                variant="primary"
-                size="lg"
-                onClick={handleCloneSubmit}
-                disabled={isCloning || (!audioBlob && !selectedFile)}
-                isLoading={isCloning}
-              >
-                ✨ Clone Voice Model
-              </Button>
+              {isUnlocked ? (
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={handleCloneSubmit}
+                  disabled={isCloning || (!audioBlob && !selectedFile)}
+                  isLoading={isCloning}
+                >
+                  ✨ Clone Voice Model
+                </Button>
+              ) : (
+                <Link href="/dashboard/settings">
+                  <Button variant="primary" size="lg">
+                    🔒 Upgrade to Clone Voice
+                  </Button>
+                </Link>
+              )}
             </CardFooter>
           </Card>
         </div>
@@ -483,7 +584,9 @@ export default function VoiceCloningPage() {
               </div>
               <h3 className="font-semibold text-sm text-foreground">No Cloned Voices Yet</h3>
               <p className="text-xs text-muted-foreground">
-                Record or upload your audio on the left to clone your first custom voice model.
+                {isUnlocked
+                  ? "Record or upload your audio on the left to clone your first custom voice model."
+                  : "Upgrade to Creator or Pro to clone and store custom voice models in your vault."}
               </p>
             </Card>
           )}
