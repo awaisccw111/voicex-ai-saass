@@ -12,12 +12,19 @@ import {
   Container,
 } from "@saas/ui";
 import { PRESET_VOICES, APP_ROUTES } from "@saas/core";
+import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
+import { authOptions } from "@/lib/auth";
 import { SUBSCRIPTION_PLANS, CREDIT_PACKS } from "@/lib/stripe";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { VoiceDemoStudio } from "@/components/voice-demo";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const session = await getServerSession(authOptions);
+  if (session?.user) {
+    redirect("/dashboard");
+  }
   const faqs = [
     {
       question: "What is VOICEX AI and how does neural voiceover work?",

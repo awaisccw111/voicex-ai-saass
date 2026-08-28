@@ -3,8 +3,16 @@ import { NextResponse } from "next/server";
 import type { NextRequestWithAuth } from "next-auth/middleware";
 
 export default withAuth(
-  function middleware(_req: NextRequestWithAuth) {
-    // Add custom security headers
+  function middleware(req: NextRequestWithAuth) {
+    const path = req.nextUrl.pathname;
+    const token = req.nextauth.token;
+
+    // If authenticated user visits home or auth pages, redirect directly to dashboard
+    if (token && (path === "/" || path === "/login" || path === "/register" || path.startsWith("/auth"))) {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+
+    // Security headers
     const response = NextResponse.next();
     response.headers.set("X-Frame-Options", "DENY");
     response.headers.set("X-Content-Type-Options", "nosniff");
@@ -39,6 +47,10 @@ export default withAuth(
 
 export const config = {
   matcher: [
+    "/",
+    "/login",
+    "/register",
+    "/auth/:path*",
     "/dashboard/:path*",
     "/studio/:path*",
     "/settings/:path*",
