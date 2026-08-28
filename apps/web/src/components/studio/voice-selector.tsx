@@ -24,9 +24,9 @@ export const VoiceSelector: React.FC = () => {
           const mapped: VoiceModel[] = json.data.map((c: { id: string; fishAudioId: string; name: string; gender: string; language: string }) => ({
             id: c.fishAudioId,
             name: `${c.name} (Cloned)`,
-            gender: c.gender as "male" | "female" | "neutral",
+            gender: (c.gender === "male" || c.gender === "female" ? c.gender : "neutral") as VoiceModel["gender"],
             category: "conversational",
-            language: c.language as any,
+            language: c.language as VoiceModel["language"],
             languageName: `Custom Cloned Voice`,
             previewAudioUrl: "/audio/previews/aurora.mp3",
             avatarUrl: "/avatars/aurora.webp",
