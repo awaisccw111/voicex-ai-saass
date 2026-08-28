@@ -46,6 +46,8 @@ model User {
   stripeCustomerId String?          @unique
   credits          Int              @default(1000)
   tier             SubscriptionTier @default(FREE)
+  role             String           @default("USER") // "USER" | "ADMIN" | "SUPERADMIN"
+  isSuspended      Boolean          @default(false)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -56,6 +58,8 @@ model User {
 
   @@index([email])
   @@index([stripeCustomerId])
+  @@index([role])
+  @@index([isSuspended])
 }
 
 model Subscription {
@@ -125,4 +129,25 @@ model ClonedVoice {
 
   @@index([userId])
   @@index([fishAudioId])
+}
+
+model PlatformVoice {
+  id              String   @id @default(cuid())
+  fishAudioId     String   @unique
+  name            String
+  gender          String   @default("neutral")
+  category        String   @default("conversational")
+  language        String   @default("en-US")
+  languageName    String   @default("English (United States) 🇺🇸")
+  tags            String[] @default([])
+  previewAudioUrl String?
+  avatarUrl       String?
+  isPremium       Boolean  @default(true)
+  isActive        Boolean  @default(true)
+  order           Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([fishAudioId])
+  @@index([isActive])
 }
