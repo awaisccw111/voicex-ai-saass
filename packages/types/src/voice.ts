@@ -7,9 +7,28 @@ export type VoiceCategory =
   | "character"
   | "news"
   | "educational"
-  | "meditation";
+  | "meditation"
+  | "executive"
+  | "gaming"
+  | "corporate";
 
-export type VoiceLanguage = "en-US" | "en-GB" | "en-AU" | "es-ES" | "de-DE" | "fr-FR" | "ja-JP";
+export type VoiceLanguage =
+  | "en-US"
+  | "en-GB"
+  | "en-AU"
+  | "en-CA"
+  | "en-IN"
+  | "hi-IN"
+  | "es-ES"
+  | "es-MX"
+  | "fr-FR"
+  | "de-DE"
+  | "ja-JP"
+  | "ar-SA"
+  | "ar-AE"
+  | "pt-BR"
+  | "it-IT"
+  | (string & {});
 
 export type VoiceEmotion =
   | "neutral"

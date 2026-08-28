@@ -209,8 +209,7 @@ export async function POST(req: Request) {
           data: {
             status: GenerationStatus.COMPLETED,
             audioUrl,
-            durationSeconds: ttsResult.durationSeconds,
-            characterCount: text.length,
+            duration: ttsResult.durationSeconds,
           },
         });
 
@@ -221,7 +220,7 @@ export async function POST(req: Request) {
               generationId: completedGen.id,
               status: "COMPLETED",
               audioUrl: completedGen.audioUrl,
-              durationSeconds: completedGen.durationSeconds,
+              durationSeconds: completedGen.duration ?? ttsResult.durationSeconds,
               creditsDeducted: requiredCredits,
               creditsRemaining: updatedUser.credits,
               createdAt: completedGen.createdAt.toISOString(),

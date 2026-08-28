@@ -2,14 +2,12 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   Button,
-  Input,
   Card,
   CardHeader,
   CardTitle,
-  CardDescription,
   CardContent,
   CardFooter,
   Badge,
@@ -19,7 +17,6 @@ import type { VoiceModel } from "@saas/types";
 
 export default function VoiceLibraryPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedGender, setSelectedGender] = React.useState<string>("all");
