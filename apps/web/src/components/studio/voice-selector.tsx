@@ -5,28 +5,63 @@ import Link from "next/link";
 import { Badge, Button } from "@saas/ui";
 import { PRESET_VOICES } from "@saas/core";
 import { useStudioStore } from "@/store/useStudioStore";
+import type { VoiceModel } from "@saas/types";
 
 export const VoiceSelector: React.FC = () => {
   const { selectedVoiceId, setSelectedVoiceId } = useStudioStore();
   const [playingPreviewId, setPlayingPreviewId] = React.useState<string | null>(null);
   const [filterCategory, setFilterCategory] = React.useState<string>("all");
   const [filterLanguage, setFilterLanguage] = React.useState<string>("all");
+  const [customVoices, setCustomVoices] = React.useState<readonly VoiceModel[]>([]);
+
+  // Fetch user custom cloned voices
+  React.useEffect(() => {
+    async function loadClonedVoices() {
+      try {
+        const res = await fetch("/api/clone");
+        const json = await res.json();
+        if (res.ok && json.success && Array.isArray(json.data)) {
+          const mapped: VoiceModel[] = json.data.map((c: { id: string; fishAudioId: string; name: string; gender: string; language: string }) => ({
+            id: c.fishAudioId,
+            name: `${c.name} (Cloned)`,
+            gender: c.gender as "male" | "female" | "neutral",
+            category: "conversational",
+            language: c.language as any,
+            languageName: `Custom Cloned Voice`,
+            previewAudioUrl: "/audio/previews/aurora.mp3",
+            avatarUrl: "/avatars/aurora.webp",
+            supportedEmotions: ["neutral"],
+            isPremium: true,
+            tags: ["Cloned Voice", "Zero-Shot", "Custom Model"],
+          }));
+          setCustomVoices(mapped);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    loadClonedVoices();
+  }, []);
+
+  const allVoices = React.useMemo(() => {
+    return [...customVoices, ...PRESET_VOICES];
+  }, [customVoices]);
 
   const availableLanguages = React.useMemo(() => {
     const langs = new Map<string, string>();
-    PRESET_VOICES.forEach((v) => langs.set(v.language, v.languageName));
+    allVoices.forEach((v) => langs.set(v.language, v.languageName));
     return Array.from(langs.entries());
-  }, []);
+  }, [allVoices]);
 
   const filteredVoices = React.useMemo(() => {
-    return PRESET_VOICES.filter((voice) => {
+    return allVoices.filter((voice) => {
       const matchCat = filterCategory === "all" || voice.category.toLowerCase() === filterCategory.toLowerCase();
       const matchLang = filterLanguage === "all" || voice.language === filterLanguage;
       return matchCat && matchLang;
     });
-  }, [filterCategory, filterLanguage]);
+  }, [allVoices, filterCategory, filterLanguage]);
 
-  const handleTogglePreview = (e: React.MouseEvent, voice: (typeof PRESET_VOICES)[number]) => {
+  const handleTogglePreview = (e: React.MouseEvent, voice: VoiceModel) => {
     e.stopPropagation();
 
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
@@ -67,15 +102,22 @@ export const VoiceSelector: React.FC = () => {
             Select AI Voice Actor
           </label>
           <span className="text-xs text-muted-foreground">
-            {filteredVoices.length} of {PRESET_VOICES.length} voices displayed
+            {filteredVoices.length} of {allVoices.length} voices available
           </span>
         </div>
 
-        <Link href="/dashboard/voices">
-          <Button variant="outline" size="sm" className="text-xs">
-            🔍 Browse Full 100+ Catalog →
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/dashboard/clone">
+            <Button variant="primary" size="sm" className="text-xs">
+              ✨ Clone Voice
+            </Button>
+          </Link>
+          <Link href="/dashboard/voices">
+            <Button variant="outline" size="sm" className="text-xs">
+              🔍 100+ Catalog →
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Quick Filters */}
@@ -126,6 +168,7 @@ export const VoiceSelector: React.FC = () => {
         {filteredVoices.map((voice) => {
           const isSelected = voice.id === selectedVoiceId;
           const isPreviewing = playingPreviewId === voice.id;
+          const isCloned = voice.tags.includes("Cloned Voice");
 
           return (
             <div
@@ -141,7 +184,9 @@ export const VoiceSelector: React.FC = () => {
                 <div className="flex items-center gap-2.5 overflow-hidden">
                   <div
                     className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs uppercase shrink-0 transition-colors ${
-                      isSelected
+                      isCloned
+                        ? "bg-gradient-to-tr from-primary to-accent text-white"
+                        : isSelected
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted text-foreground group-hover:bg-primary/20"
                     }`}
@@ -157,7 +202,11 @@ export const VoiceSelector: React.FC = () => {
                       <span className="font-semibold text-xs text-foreground truncate">
                         {voice.name}
                       </span>
-                      {voice.isPremium && (
+                      {isCloned ? (
+                        <Badge variant="glow" size="sm">
+                          Cloned
+                        </Badge>
+                      ) : voice.isPremium && (
                         <Badge variant="glow" size="sm">
                           HD
                         </Badge>

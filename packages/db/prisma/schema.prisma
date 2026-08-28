@@ -52,6 +52,7 @@ model User {
   subscriptions       Subscription[]
   creditTransactions  CreditTransaction[]
   voiceGenerations    VoiceGeneration[]
+  clonedVoices        ClonedVoice[]
 
   @@index([email])
   @@index([stripeCustomerId])
@@ -107,4 +108,21 @@ model VoiceGeneration {
   @@index([userId])
   @@index([status])
   @@index([jobId])
+}
+
+model ClonedVoice {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fishAudioId    String
+  name           String
+  gender         String   @default("neutral")
+  language       String   @default("en-US")
+  sampleAudioUrl String?
+  description    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+  @@index([fishAudioId])
 }
