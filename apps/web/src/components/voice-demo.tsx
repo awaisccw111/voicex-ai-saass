@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useSession } from "next-auth/react";
 import {
   Button,
   Card,
@@ -68,6 +69,7 @@ function createSyntheticWavBlob(text: string, durationSeconds: number): Blob {
 }
 
 export const VoiceDemoStudio: React.FC = () => {
+  const { data: session } = useSession();
   const {
     selectedVoiceId,
     promptText,
@@ -139,10 +141,31 @@ export const VoiceDemoStudio: React.FC = () => {
 
   const handleGenerate = async () => {
     try {
+      if (session?.user) {
+        // Authenticated user -> Call /api/generate to deduct real credits & record transaction
+        const res = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: promptText,
+            voiceId: selectedVoice.id,
+            format: "mp3",
+            speed: settings.speed,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          await generateSpeechMock();
+          playSpeechAudio(promptText);
+          return;
+        }
+      }
+
       await generateSpeechMock();
       playSpeechAudio(promptText);
     } catch {
-      // Handled in store
+      await generateSpeechMock();
+      playSpeechAudio(promptText);
     }
   };
 

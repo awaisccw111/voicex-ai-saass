@@ -3,8 +3,9 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma, GenerationStatus, TransactionType } from "@saas/db";
-import { voiceGenerationQueue } from "@/server/queue";
 import { rateLimit } from "@/lib/rate-limit";
+import { generateFishAudioTTS } from "@/server/fish-audio";
+import { uploadAudioBuffer } from "@/server/storage";
 
 const generateRequestSchema = z.object({
   text: z
@@ -35,8 +36,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Rate Limiting: Max 15 generation requests per minute per user
-    const rateCheck = await rateLimit(`gen:${session.user.id}`, 15, 60);
+    const userId = session.user.id;
+
+    // Rate Limiting
+    const rateCheck = await rateLimit(`gen:${userId}`, 30, 60);
     if (!rateCheck.success) {
       return NextResponse.json(
         {
@@ -68,8 +71,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { text, voiceId, format, speed, pitch } = parseResult.data;
-    const userId = session.user.id;
+    const { text, voiceId, format, speed } = parseResult.data;
 
     // Calculate required credits: 1 credit per 5 characters (minimum 10 credits)
     const requiredCredits = Math.max(10, Math.ceil(text.length / 5));
@@ -108,7 +110,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Atomically debit credits and create VoiceGeneration record in PENDING status
+    // Atomically debit credits and create VoiceGeneration record
     const [updatedUser, generation] = await prisma.$transaction([
       prisma.user.update({
         where: { id: userId },
@@ -136,144 +138,77 @@ export async function POST(req: Request) {
       }),
     ]);
 
-    // Check if remote Redis is available, otherwise execute instant serverless synthesis
-    const redisUrl = process.env.REDIS_URL;
-    const hasLiveRedis =
-      Boolean(redisUrl) &&
-      !redisUrl?.includes("127.0.0.1") &&
-      !redisUrl?.includes("localhost");
+    // Execute direct synthesis
+    try {
+      const ttsResult = await generateFishAudioTTS({
+        text,
+        voiceId,
+        format,
+        speed,
+      });
 
-    let isQueued = false;
-    let jobId = `gen-${generation.id}`;
+      const filename = `${generation.id}.${format}`;
+      const audioUrl = await uploadAudioBuffer(
+        ttsResult.audioBuffer,
+        filename,
+        ttsResult.contentType,
+      );
 
-    if (hasLiveRedis) {
-      try {
-        const queuePromise = voiceGenerationQueue.add(
-          "generate-speech",
-          {
-            generationId: generation.id,
-            userId,
-            text,
-            voiceId,
-            format,
-            creditsUsed: requiredCredits,
-            speed,
-            pitch,
-          },
-          {
-            jobId,
-          },
-        );
-        const timeoutPromise = new Promise<null>((_, reject) =>
-          setTimeout(() => reject(new Error("Redis queue timeout")), 1500),
-        );
-        const job = (await Promise.race([queuePromise, timeoutPromise])) as { id: string } | null;
-        if (job) {
-          isQueued = true;
-          jobId = String(job.id);
-        }
-      } catch {
-        isQueued = false;
-      }
-    }
-
-    if (isQueued) {
-      // Link BullMQ Job ID to database record
-      await prisma.voiceGeneration.update({
+      const completedGen = await prisma.voiceGeneration.update({
         where: { id: generation.id },
-        data: { jobId },
+        data: {
+          status: GenerationStatus.COMPLETED,
+          audioUrl,
+          duration: ttsResult.durationSeconds,
+        },
       });
 
       return NextResponse.json(
         {
           success: true,
           data: {
-            generationId: generation.id,
-            jobId,
-            status: "PENDING",
+            generationId: completedGen.id,
+            status: "COMPLETED",
+            audioUrl: completedGen.audioUrl,
+            durationSeconds: completedGen.duration ?? ttsResult.durationSeconds,
             creditsDeducted: requiredCredits,
             creditsRemaining: updatedUser.credits,
-            createdAt: generation.createdAt.toISOString(),
+            createdAt: completedGen.createdAt.toISOString(),
           },
         },
-        { status: 202 },
+        { status: 200 },
       );
-    } else {
-      // Direct serverless synthesis fallback
-      try {
-        const { generateFishAudioTTS } = await import("@/server/fish-audio");
-        const { uploadAudioBuffer } = await import("@/server/storage");
-
-        const ttsResult = await generateFishAudioTTS({
-          text,
-          voiceId,
-          format,
-          speed,
-        });
-
-        const filename = `${generation.id}.${format}`;
-        const audioUrl = await uploadAudioBuffer(
-          ttsResult.audioBuffer,
-          filename,
-          ttsResult.contentType,
-        );
-
-        const completedGen = await prisma.voiceGeneration.update({
+    } catch (synthError: unknown) {
+      // Refund credits on synthesis error
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: userId },
+          data: { credits: { increment: requiredCredits } },
+        }),
+        prisma.voiceGeneration.update({
           where: { id: generation.id },
           data: {
-            status: GenerationStatus.COMPLETED,
-            audioUrl,
-            duration: ttsResult.durationSeconds,
+            status: GenerationStatus.FAILED,
+            errorMessage:
+              synthError instanceof Error ? synthError.message : "Synthesis failed",
           },
-        });
-
-        return NextResponse.json(
-          {
-            success: true,
-            data: {
-              generationId: completedGen.id,
-              status: "COMPLETED",
-              audioUrl: completedGen.audioUrl,
-              durationSeconds: completedGen.duration ?? ttsResult.durationSeconds,
-              creditsDeducted: requiredCredits,
-              creditsRemaining: updatedUser.credits,
-              createdAt: completedGen.createdAt.toISOString(),
-            },
+        }),
+        prisma.creditTransaction.create({
+          data: {
+            userId,
+            amount: requiredCredits,
+            type: TransactionType.REFUND,
+            description: `Refund for failed synthesis ${generation.id}`,
           },
-          { status: 200 },
-        );
-      } catch (synthError: unknown) {
-        // Refund credits on synthesis failure
-        await prisma.$transaction([
-          prisma.user.update({
-            where: { id: userId },
-            data: { credits: { increment: requiredCredits } },
-          }),
-          prisma.voiceGeneration.update({
-            where: { id: generation.id },
-            data: {
-              status: GenerationStatus.FAILED,
-              errorMessage:
-                synthError instanceof Error ? synthError.message : "Synthesis failed",
-            },
-          }),
-          prisma.creditTransaction.create({
-            data: {
-              userId,
-              amount: requiredCredits,
-              type: TransactionType.REFUND,
-              description: `Refund for failed synthesis ${generation.id}`,
-            },
-          }),
-        ]);
+        }),
+      ]);
 
-        throw synthError;
-      }
+      throw synthError;
     }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal generation failure";
     // eslint-disable-next-line no-console
-    console.error("[API:Generate] Error enqueuing generation job:", message);
+    console.error("[API:Generate] Error executing generation:", message);
     return NextResponse.json(
       {
         success: false,
