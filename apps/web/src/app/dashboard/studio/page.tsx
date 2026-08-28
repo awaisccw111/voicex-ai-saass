@@ -59,11 +59,11 @@ export default function StudioPage() {
             Neural Voiceover Studio
           </h1>
           <Badge variant="glow" size="sm">
-            AI Engine v2.4
+            Fish Audio S2.1 Pro
           </Badge>
         </div>
         <p className="text-sm text-muted-foreground">
-          Enter your script, select an actor model, configure cadence, and synthesize studio-quality speech.
+          Enter your script, select an actor model from 83 languages, configure cadence, and synthesize studio-quality speech.
         </p>
       </div>
 

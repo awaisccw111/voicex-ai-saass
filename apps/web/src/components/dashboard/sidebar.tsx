@@ -34,7 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           />
         </svg>
       ),
-      badge: "v2.4",
+      badge: "S2.1 Pro",
     },
     {
       name: "Voice Library",

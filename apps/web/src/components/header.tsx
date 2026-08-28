@@ -29,7 +29,7 @@ export const Header: React.FC = () => {
             >
               <span>AI Studio</span>
               <Badge variant="glow" size="sm">
-                v2.4
+                S2.1 Pro
               </Badge>
             </Link>
             <Link

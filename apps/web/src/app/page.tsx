@@ -88,7 +88,7 @@ export default function HomePage() {
             {/* Announcement Badge */}
             <div className="mb-6">
               <Badge variant="glow" size="md" dot>
-                Powered by Fish Audio Neural Acoustic Models v2.4
+                Powered by Fish Audio S2.1 Pro Engine (83 Languages)
               </Badge>
             </div>
 
