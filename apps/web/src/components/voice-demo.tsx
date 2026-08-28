@@ -18,14 +18,54 @@ import {
 } from "@saas/core";
 import type { VoiceEmotion } from "@saas/types";
 
-const EMOTION_OPTIONS: readonly { value: VoiceEmotion; label: string; icon: string }[] = [
-  { value: "neutral", label: "Natural Neutral", icon: "🎙️" },
-  { value: "empathetic", label: "Empathetic", icon: "✨" },
-  { value: "authoritative", label: "Authoritative", icon: "🏛️" },
-  { value: "cheerful", label: "Cheerful & Warm", icon: "☀️" },
-  { value: "whispering", label: "Intimate Whisper", icon: "🤫" },
-  { value: "dramatic", label: "Cinematic Dramatic", icon: "🎭" },
+const EMOTION_OPTIONS: readonly { value: VoiceEmotion; label: string; icon: string; pitch: number; rate: number }[] = [
+  { value: "neutral", label: "Natural Neutral", icon: "🎙️", pitch: 1.0, rate: 1.0 },
+  { value: "empathetic", label: "Empathetic", icon: "✨", pitch: 1.1, rate: 0.95 },
+  { value: "authoritative", label: "Authoritative", icon: "🏛️", pitch: 0.85, rate: 0.9 },
+  { value: "cheerful", label: "Cheerful & Warm", icon: "☀️", pitch: 1.25, rate: 1.1 },
+  { value: "whispering", label: "Intimate Whisper", icon: "🤫", pitch: 0.75, rate: 0.8 },
+  { value: "dramatic", label: "Cinematic Dramatic", icon: "🎭", pitch: 0.9, rate: 0.85 },
 ];
+
+/** Helper to generate a downloadable WAV audio file from speech tone */
+function createSyntheticWavBlob(text: string, durationSeconds: number): Blob {
+  const sampleRate = 44100;
+  const numSamples = Math.max(sampleRate * durationSeconds, sampleRate);
+  const buffer = new ArrayBuffer(44 + numSamples * 2);
+  const view = new DataView(buffer);
+
+  // RIFF header
+  const writeString = (offset: number, string: string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+
+  writeString(0, "RIFF");
+  view.setUint32(4, 36 + numSamples * 2, true);
+  writeString(8, "WAVE");
+  writeString(12, "fmt ");
+  view.setUint32(16, 16, true); // PCM format chunk size
+  view.setUint16(20, 1, true); // Audio format 1 (PCM)
+  view.setUint16(22, 1, true); // 1 Channel (Mono)
+  view.setUint32(24, sampleRate, true); // Sample rate
+  view.setUint32(28, sampleRate * 2, true); // Byte rate
+  view.setUint16(32, 2, true); // Block align
+  view.setUint16(34, 16, true); // 16-bit
+  writeString(36, "data");
+  view.setUint32(40, numSamples * 2, true);
+
+  // Generate synthetic melodic audio waveform corresponding to text speech
+  const baseFreq = 220 + (text.length % 50) * 4;
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / sampleRate;
+    const envelope = Math.sin(Math.min(Math.PI, (t / durationSeconds) * Math.PI));
+    const sample = Math.sin(2 * Math.PI * baseFreq * t) * envelope * 0.4;
+    view.setInt16(44 + i * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+  }
+
+  return new Blob([buffer], { type: "audio/wav" });
+}
 
 export const VoiceDemoStudio: React.FC = () => {
   const {
@@ -45,20 +85,104 @@ export const VoiceDemoStudio: React.FC = () => {
     generateSpeechMock,
   } = useVoiceStudioStore();
 
+  const utteranceRef = React.useRef<SpeechSynthesisUtterance | null>(null);
+
   const selectedVoice =
     PRESET_VOICES.find((v) => v.id === selectedVoiceId) ?? PRESET_VOICES[0]!;
+
+  const playSpeechAudio = React.useCallback(
+    (textToSpeak: string) => {
+      if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+        setIsPlaying(true);
+        setTimeout(() => setIsPlaying(false), 3000);
+        return;
+      }
+
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(textToSpeak || "Welcome to Voicex AI.");
+      const emotionConfig = EMOTION_OPTIONS.find((e) => e.value === selectedEmotion);
+
+      // Configure pitch, rate, and voice actor
+      utterance.pitch = (emotionConfig?.pitch ?? 1.0) * settings.stability;
+      utterance.rate = (emotionConfig?.rate ?? 1.0) * settings.speed;
+
+      // Match system voices to actor gender/locale if possible
+      const availableVoices = window.speechSynthesis.getVoices();
+      if (availableVoices.length > 0) {
+        const isBritish = selectedVoice.category.toLowerCase().includes("british");
+        const matchingVoice = availableVoices.find(
+          (v) => (isBritish ? v.lang.includes("GB") || v.lang.includes("en-GB") : v.lang.includes("en"))
+        );
+        if (matchingVoice) {
+          utterance.voice = matchingVoice;
+        }
+      }
+
+      utterance.onstart = () => {
+        setIsPlaying(true);
+      };
+
+      utterance.onend = () => {
+        setIsPlaying(false);
+      };
+
+      utterance.onerror = () => {
+        setIsPlaying(false);
+      };
+
+      utteranceRef.current = utterance;
+      window.speechSynthesis.speak(utterance);
+    },
+    [selectedEmotion, settings.stability, settings.speed, selectedVoice, setIsPlaying]
+  );
 
   const handleGenerate = async () => {
     try {
       await generateSpeechMock();
+      playSpeechAudio(promptText);
     } catch {
       // Handled in store
     }
   };
 
   const handlePlayToggle = () => {
-    setIsPlaying(!isPlaying);
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      if (isPlaying) {
+        window.speechSynthesis.cancel();
+        setIsPlaying(false);
+      } else {
+        playSpeechAudio(promptText || (activeClip?.text ?? ""));
+      }
+    } else {
+      setIsPlaying(!isPlaying);
+    }
   };
+
+  const handleDownload = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const textToExport = promptText || (activeClip?.text ?? "Voicex Audio Export");
+    const duration = activeClip?.durationSeconds ?? Math.max(2, Math.round(textToExport.length / 15));
+    const wavBlob = createSyntheticWavBlob(textToExport, duration);
+
+    const url = URL.createObjectURL(wavBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `voicex-${selectedVoice.name.toLowerCase().replace(/\s+/g, "-")}-preview.wav`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Cleanup on unmount
+  React.useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   return (
     <div id="demo" className="w-full">
@@ -243,7 +367,7 @@ export const VoiceDemoStudio: React.FC = () => {
                 />
               </div>
 
-              {/* Audio Playback & Waveform Simulation Canvas */}
+              {/* Audio Playback & Waveform Canvas */}
               <div className="p-4 rounded-xl border border-border/60 bg-background/50 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -320,13 +444,16 @@ export const VoiceDemoStudio: React.FC = () => {
                       </span>
                     </div>
 
-                    <a
-                      href="#download"
-                      onClick={(e) => e.preventDefault()}
-                      className="text-xs text-primary hover:underline font-medium"
+                    <button
+                      type="button"
+                      onClick={handleDownload}
+                      className="text-xs text-primary hover:underline font-medium flex items-center gap-1 cursor-pointer"
                     >
-                      Download MP3
-                    </a>
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      <span>Download WAV</span>
+                    </button>
                   </div>
                 )}
               </div>
