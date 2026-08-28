@@ -62,7 +62,7 @@ export default async function DashboardPage() {
               Buy Credits
             </Button>
           </Link>
-          <Link href="/#demo">
+          <Link href="/dashboard/studio">
             <Button
               variant="primary"
               size="md"
@@ -161,9 +161,9 @@ export default async function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
-            <Link href="/#demo" className="w-full">
+            <Link href="/dashboard/studio" className="w-full">
               <Button variant="primary" size="sm" fullWidth>
-                Launch Studio Sandbox →
+                Launch Studio Workspace →
               </Button>
             </Link>
           </CardContent>
