@@ -55,7 +55,7 @@ export const Header: React.FC = () => {
                 Sign In
               </Button>
             </Link>
-            <Link href="#demo">
+            <Link href={APP_ROUTES.SIGNUP}>
               <Button
                 variant="primary"
                 size="sm"
@@ -70,7 +70,7 @@ export const Header: React.FC = () => {
                   </svg>
                 }
               >
-                Try Free Studio
+                Get 1,000 Free Credits
               </Button>
             </Link>
           </div>
@@ -141,7 +141,7 @@ export const Header: React.FC = () => {
                   Sign In
                 </Button>
               </Link>
-              <Link href="#demo" onClick={() => setMobileMenuOpen(false)}>
+              <Link href={APP_ROUTES.SIGNUP} onClick={() => setMobileMenuOpen(false)}>
                 <Button variant="primary" size="sm" fullWidth>
                   Get Started Free
                 </Button>

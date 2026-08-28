@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone",
   reactStrictMode: true,
   transpilePackages: ["@saas/ui", "@saas/types", "@saas/core", "@saas/db"],
   experimental: {
@@ -13,6 +12,30 @@ const nextConfig = {
         hostname: "images.unsplash.com",
       },
     ],
+  },
+  async redirects() {
+    return [
+      {
+        source: "/auth/login",
+        destination: "/login",
+        permanent: true,
+      },
+      {
+        source: "/auth/signup",
+        destination: "/register",
+        permanent: true,
+      },
+      {
+        source: "/auth/register",
+        destination: "/register",
+        permanent: true,
+      },
+      {
+        source: "/studio",
+        destination: "/dashboard/studio",
+        permanent: true,
+      },
+    ];
   },
 };
 

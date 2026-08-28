@@ -1,14 +1,14 @@
 export const APP_ROUTES = {
   HOME: "/",
-  STUDIO: "/studio",
-  VOICES: "/voices",
-  CLONING: "/cloning",
-  PRICING: "/pricing",
+  STUDIO: "/dashboard/studio",
+  VOICES: "/#voices",
+  CLONING: "/#demo",
+  PRICING: "/#pricing",
   API_DOCS: "/docs/api",
-  LOGIN: "/auth/login",
-  SIGNUP: "/auth/signup",
-  SETTINGS: "/settings",
-  PROJECTS: "/projects",
+  LOGIN: "/login",
+  SIGNUP: "/register",
+  SETTINGS: "/dashboard/settings",
+  PROJECTS: "/dashboard",
 } as const;
 
 export type AppRoute = (typeof APP_ROUTES)[keyof typeof APP_ROUTES];
