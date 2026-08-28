@@ -13,23 +13,33 @@ export const VoiceSelector: React.FC = () => {
   const [customVoices, setCustomVoices] = React.useState<readonly VoiceModel[]>([]);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [platformVoices, setPlatformVoices] = React.useState<readonly VoiceModel[]>(PRESET_VOICES);
 
-  // Fetch user custom cloned voices
+  // Fetch live database platform voices & user custom cloned voices
   React.useEffect(() => {
-    async function loadClonedVoices() {
+    async function loadVoices() {
       try {
-        const res = await fetch("/api/clone");
-        const json = await res.json();
-        if (res.ok && json.success && Array.isArray(json.data)) {
-          const mapped: VoiceModel[] = json.data.map((c: { id: string; fishAudioId: string; name: string; gender: string; language: string }) => ({
+        // 1. Fetch platform voices
+        const pRes = await fetch("/api/voices");
+        const pJson = await pRes.json();
+        if (pRes.ok && pJson.success && Array.isArray(pJson.data) && pJson.data.length > 0) {
+          setPlatformVoices(pJson.data);
+        }
+
+        // 2. Fetch cloned voices
+        const cRes = await fetch("/api/clone");
+        const cJson = await cRes.json();
+        if (cRes.ok && cJson.success && cJson.data) {
+          const list = Array.isArray(cJson.data) ? cJson.data : (cJson.data.clonedVoices ?? []);
+          const mapped: VoiceModel[] = list.map((c: { id: string; fishAudioId: string; name: string; gender: string; language: string }) => ({
             id: c.fishAudioId,
             name: `${c.name} (Cloned)`,
             gender: (c.gender === "male" || c.gender === "female" ? c.gender : "neutral") as VoiceModel["gender"],
             category: "conversational",
             language: c.language as VoiceModel["language"],
             languageName: `Custom Cloned Voice`,
-            previewAudioUrl: "/audio/previews/aurora.mp3",
-            avatarUrl: "/avatars/aurora.webp",
+            previewAudioUrl: "/audio/previews/selene.mp3",
+            avatarUrl: "/avatars/selene.webp",
             supportedEmotions: ["neutral"],
             isPremium: true,
             tags: ["Cloned Voice", "Zero-Shot", "Custom Model"],
@@ -40,12 +50,12 @@ export const VoiceSelector: React.FC = () => {
         // ignore
       }
     }
-    loadClonedVoices();
+    loadVoices();
   }, []);
 
   const allVoices = React.useMemo(() => {
-    return [...customVoices, ...PRESET_VOICES];
-  }, [customVoices]);
+    return [...customVoices, ...platformVoices];
+  }, [customVoices, platformVoices]);
 
   // Active Selected Voice
   const activeVoice: VoiceModel =
