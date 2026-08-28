@@ -136,31 +136,45 @@ export async function POST(req: Request) {
       }),
     ]);
 
-    // Attempt to queue via BullMQ or execute direct serverless synthesis
+    // Check if remote Redis is available, otherwise execute instant serverless synthesis
+    const redisUrl = process.env.REDIS_URL;
+    const hasLiveRedis =
+      Boolean(redisUrl) &&
+      !redisUrl?.includes("127.0.0.1") &&
+      !redisUrl?.includes("localhost");
+
     let isQueued = false;
     let jobId = `gen-${generation.id}`;
 
-    try {
-      const job = await voiceGenerationQueue.add(
-        "generate-speech",
-        {
-          generationId: generation.id,
-          userId,
-          text,
-          voiceId,
-          format,
-          creditsUsed: requiredCredits,
-          speed,
-          pitch,
-        },
-        {
-          jobId,
-        },
-      );
-      isQueued = true;
-      jobId = String(job.id);
-    } catch {
-      // Redis unavailable -> Execute serverless direct synthesis
+    if (hasLiveRedis) {
+      try {
+        const queuePromise = voiceGenerationQueue.add(
+          "generate-speech",
+          {
+            generationId: generation.id,
+            userId,
+            text,
+            voiceId,
+            format,
+            creditsUsed: requiredCredits,
+            speed,
+            pitch,
+          },
+          {
+            jobId,
+          },
+        );
+        const timeoutPromise = new Promise<null>((_, reject) =>
+          setTimeout(() => reject(new Error("Redis queue timeout")), 1500),
+        );
+        const job = (await Promise.race([queuePromise, timeoutPromise])) as { id: string } | null;
+        if (job) {
+          isQueued = true;
+          jobId = String(job.id);
+        }
+      } catch {
+        isQueued = false;
+      }
     }
 
     if (isQueued) {

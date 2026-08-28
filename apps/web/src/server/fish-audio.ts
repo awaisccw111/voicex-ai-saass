@@ -11,6 +11,41 @@ export interface FishAudioTTSResult {
   readonly contentType: string;
 }
 
+function createMockWavBuffer(durationSeconds: number): Buffer {
+  const sampleRate = 22050;
+  const numSamples = Math.floor(sampleRate * durationSeconds);
+  const buffer = Buffer.alloc(44 + numSamples * 2);
+
+  // RIFF Chunk
+  buffer.write("RIFF", 0);
+  buffer.writeUInt32LE(36 + numSamples * 2, 4);
+  buffer.write("WAVE", 8);
+
+  // fmt Chunk
+  buffer.write("fmt ", 12);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20); // PCM
+  buffer.writeUInt16LE(1, 22); // Mono
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate * 2, 28);
+  buffer.writeUInt16LE(2, 32);
+  buffer.writeUInt16LE(16, 34);
+
+  // data Chunk
+  buffer.write("data", 36);
+  buffer.writeUInt32LE(numSamples * 2, 40);
+
+  const freq = 440;
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / sampleRate;
+    const envelope = Math.sin(Math.min(Math.PI, (t / durationSeconds) * Math.PI));
+    const sample = Math.sin(2 * Math.PI * freq * t) * envelope * 0.3;
+    buffer.writeInt16LE(sample < 0 ? sample * 0x8000 : sample * 0x7fff, 44 + i * 2);
+  }
+
+  return buffer;
+}
+
 export async function generateFishAudioTTS(
   params: FishAudioTTSParams,
 ): Promise<FishAudioTTSResult> {
@@ -31,21 +66,14 @@ export async function generateFishAudioTTS(
       `[FishAudio:Mock] Synthesizing "${text.slice(0, 40)}..." using voice ${voiceId} in mock mode.`,
     );
 
-    // Simulate realistic TTS generation latency
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    // Calculate approximate duration: ~15-18 characters per second in natural speech
+    // Calculate approximate duration: ~15 characters per second
     const durationSeconds = Math.max(1.5, parseFloat((text.length * 0.065).toFixed(2)));
-
-    // Create a mock audio buffer representing synthesized audio data
-    const mockAudioBuffer = Buffer.from(
-      `ID3\x04\x00\x00\x00\x00\x00#TSSE\x00\x00\x00\x0f\x00\x00\x03VOICEX Neural Engine mock data for text: ${text.slice(0, 80)}`,
-    );
+    const mockAudioBuffer = createMockWavBuffer(durationSeconds);
 
     return {
       audioBuffer: mockAudioBuffer,
       durationSeconds,
-      contentType,
+      contentType: "audio/wav",
     };
   }
 

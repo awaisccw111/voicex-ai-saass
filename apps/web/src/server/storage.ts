@@ -34,12 +34,8 @@ export async function uploadAudioBuffer(
   const key = `generations/${new Date().getFullYear()}/${String(new Date().getMonth() + 1).padStart(2, "0")}/${filename}`;
 
   if (!s3Client) {
-    // In local development without S3 credentials, provide structured audio mock URL
-    // eslint-disable-next-line no-console
-    console.log(
-      `[Storage:Mock] Stored ${buffer.length} bytes for ${filename}. Returning development audio URL.`,
-    );
-    return `/audio/previews/${filename.includes("wav") ? "sample.wav" : "sample.mp3"}`;
+    const base64Data = buffer.toString("base64");
+    return `data:${contentType};base64,${base64Data}`;
   }
 
   try {
