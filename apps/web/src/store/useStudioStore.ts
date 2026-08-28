@@ -48,9 +48,11 @@ export interface StudioState {
 const INITIAL_STUDIO_PROMPT =
   "In a world where intelligence meets acoustic elegance, synthetic speech transcends the boundary between human emotion and neural precision.";
 
+import { DEFAULT_VOICE_ID } from "@saas/core";
+
 export const useStudioStore = create<StudioState>((set, get) => ({
   promptText: INITIAL_STUDIO_PROMPT,
-  selectedVoiceId: "voice-aurora",
+  selectedVoiceId: DEFAULT_VOICE_ID,
   selectedFormat: "mp3",
   speed: 1.0,
   pitch: 0,
@@ -130,20 +132,15 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         return;
       }
 
-      toast.success("Job submitted! Synthesizing audio...", { id: toastId });
-
-      trackEvent("voice_generation_started", {
-        voiceId: selectedVoiceId,
-        characterCount: promptText.length,
-        creditsUsed: result.data.creditsDeducted,
-        format: selectedFormat,
-      });
+      const isInstantComplete = result.data.status === "COMPLETED";
 
       const newGenItem: VoiceGenerationItem = {
         id: result.data.generationId,
-        status: "PENDING",
+        status: isInstantComplete ? "COMPLETED" : "PENDING",
         text: promptText,
         voiceId: selectedVoiceId,
+        audioUrl: result.data.audioUrl ?? null,
+        duration: result.data.durationSeconds ?? null,
         creditsUsed: result.data.creditsDeducted,
         format: selectedFormat,
         createdAt: result.data.createdAt ?? new Date().toISOString(),
@@ -156,12 +153,17 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         isGenerating: false,
       }));
 
+      if (isInstantComplete) {
+        toast.success("Voice generation completed!", { id: toastId });
+      } else {
+        toast.success("Job submitted! Synthesizing audio...", { id: toastId });
+        // Start polling for async job resolution
+        get().pollJobStatus(newGenItem.id);
+      }
+
       if (onSuccess && typeof result.data.creditsRemaining === "number") {
         onSuccess(result.data.creditsRemaining);
       }
-
-      // Start polling for job resolution
-      get().pollJobStatus(newGenItem.id);
     } catch {
       toast.error("Network error submitting generation job.", { id: toastId });
       set({ isGenerating: false });
