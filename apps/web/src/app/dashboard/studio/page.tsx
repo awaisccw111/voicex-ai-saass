@@ -11,14 +11,20 @@ import {
   CardFooter,
   Badge,
 } from "@saas/ui";
+import { useSearchParams } from "next/navigation";
 import { VoiceSelector } from "@/components/studio/voice-selector";
 import { GenerationList } from "@/components/studio/generation-list";
 import { useStudioStore } from "@/store/useStudioStore";
 
 export default function StudioPage() {
+  const searchParams = useSearchParams();
+  const voiceIdParam = searchParams.get("voiceId");
+
   const {
     promptText,
     setPromptText,
+    selectedVoiceId,
+    setSelectedVoiceId,
     selectedFormat,
     setSelectedFormat,
     speed,
@@ -26,6 +32,12 @@ export default function StudioPage() {
     isGenerating,
     submitGeneration,
   } = useStudioStore();
+
+  React.useEffect(() => {
+    if (voiceIdParam && voiceIdParam !== selectedVoiceId) {
+      setSelectedVoiceId(voiceIdParam);
+    }
+  }, [voiceIdParam, selectedVoiceId, setSelectedVoiceId]);
 
   const maxChars = 1000;
   const currentChars = promptText.length;
