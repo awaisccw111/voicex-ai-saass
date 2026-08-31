@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@saas/db";
 import { Spinner } from "@saas/ui";
 import { BillingClient } from "./billing-client";
+import { RedeemClient } from "./redeem-client";
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions);
@@ -54,6 +55,10 @@ export default async function SettingsPage() {
           periodEnd={activeSub?.stripeCurrentPeriodEnd.toLocaleDateString()}
         />
       </React.Suspense>
+
+      <div className="mt-8">
+        <RedeemClient alreadyRedeemed={!!user.invitedBy} />
+      </div>
     </div>
   );
 }

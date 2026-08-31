@@ -33,6 +33,47 @@ interface LSWebhookPayload {
   };
 }
 
+// Process commission for a purchase or subscription
+async function processCommission(userId: string, totalCents: number) {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.invitedBy) return;
+
+    const collab = await prisma.collaborator.findUnique({
+      where: { inviteCode: user.invitedBy }
+    });
+
+    if (collab && collab.status === "APPROVED") {
+      const commission = (totalCents / 100) * 0.05;
+
+      await prisma.$transaction([
+        prisma.collaborator.update({
+          where: { id: collab.id },
+          data: {
+            availableBalance: { increment: commission },
+            totalEarnings: { increment: commission },
+          }
+        }),
+        prisma.user.update({
+          where: { id: collab.userId },
+          data: { credits: { increment: 1000 } }
+        }),
+        prisma.collaboratorEarning.create({
+          data: {
+            collaboratorId: collab.id,
+            amount: commission,
+            description: `5% commission + 1000 credits from user purchase`,
+            sourceUserId: userId
+          }
+        })
+      ]);
+      console.log(`[Collab] Processed commission $${commission} for collaborator ${collab.inviteCode}`);
+    }
+  } catch (err) {
+    console.error("Error processing commission:", err);
+  }
+}
+
 export async function POST(req: Request) {
   const rawBody = await req.text();
   const headersList = headers();
@@ -89,6 +130,9 @@ export async function POST(req: Request) {
             }),
           ]);
           console.log(`✅ Added ${creditAmount} credits to user ${userId}`);
+
+          // Process affiliate commission
+          await processCommission(userId, payload.data.attributes.total);
         }
         break;
       }
@@ -137,6 +181,9 @@ export async function POST(req: Request) {
           }),
         ]);
         console.log(`✅ Subscription created: ${planTier} for user ${userId}`);
+
+        // Process affiliate commission
+        await processCommission(userId, payload.data.attributes.total);
         break;
       }
 

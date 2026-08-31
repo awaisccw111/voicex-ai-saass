@@ -13,6 +13,7 @@ const NAV = [
   { href: "/voices", label: "🎙️ Voices" },
   { href: "/generations", label: "📜 Generations" },
   { href: "/transactions", label: "💳 Transactions" },
+  { href: "/collaborators", label: "🤝 Collaborators" },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

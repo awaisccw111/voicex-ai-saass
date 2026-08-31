@@ -38,6 +38,18 @@ enum GenerationStatus {
   FAILED
 }
 
+enum CollaborationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PayoutStatus {
+  PENDING
+  COMPLETED
+  REJECTED
+}
+
 model User {
   id               String           @id @default(cuid())
   email            String           @unique
@@ -48,6 +60,7 @@ model User {
   tier             SubscriptionTier @default(FREE)
   role             String           @default("USER") // "USER" | "ADMIN" | "SUPERADMIN"
   isSuspended      Boolean          @default(false)
+  invitedBy        String?          // The invite code they used to sign up
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -55,6 +68,7 @@ model User {
   creditTransactions  CreditTransaction[]
   voiceGenerations    VoiceGeneration[]
   clonedVoices        ClonedVoice[]
+  collaborator        Collaborator?
 
   @@index([email])
   @@index([stripeCustomerId])
@@ -150,4 +164,54 @@ model PlatformVoice {
 
   @@index([fishAudioId])
   @@index([isActive])
+}
+
+model Collaborator {
+  id               String               @id @default(cuid())
+  userId           String               @unique
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inviteCode       String               @unique
+  socialLinks      String               @db.Text
+  bankDetails      String               @db.Text
+  status           CollaborationStatus  @default(PENDING)
+  totalInvites     Int                  @default(0)
+  totalEarnings    Float                @default(0)
+  availableBalance Float                @default(0)
+  
+  payoutRequests   PayoutRequest[]
+  earnings         CollaboratorEarning[]
+
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@index([inviteCode])
+  @@index([status])
+}
+
+model CollaboratorEarning {
+  id               String       @id @default(cuid())
+  collaboratorId   String
+  collaborator     Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
+  amount           Float
+  description      String
+  sourceUserId     String?      // The user who signed up / paid
+  createdAt        DateTime     @default(now())
+
+  @@index([collaboratorId])
+  @@index([sourceUserId])
+}
+
+model PayoutRequest {
+  id               String       @id @default(cuid())
+  collaboratorId   String
+  collaborator     Collaborator @relation(fields: [collaboratorId], references: [id], onDelete: Cascade)
+  amount           Float
+  status           PayoutStatus @default(PENDING)
+  bankDetails      String       @db.Text
+  adminNotes       String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([collaboratorId])
+  @@index([status])
 }
