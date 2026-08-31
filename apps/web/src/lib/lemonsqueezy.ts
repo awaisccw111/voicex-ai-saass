@@ -3,6 +3,8 @@
  * Docs: https://docs.lemonsqueezy.com/api
  */
 
+import * as crypto from "crypto";
+
 const LS_API_BASE = "https://api.lemonsqueezy.com/v1";
 
 function lsHeaders() {
@@ -183,9 +185,7 @@ export function verifyWebhookSignature(
   const secret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET;
   if (!secret) return false;
 
-  // Node.js 20+ has built-in crypto
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const crypto = require("crypto") as typeof import("crypto");
+  // We use the top-level import * as crypto from "crypto"
   const hmac = crypto
     .createHmac("sha256", secret)
     .update(rawBody)
