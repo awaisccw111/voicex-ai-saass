@@ -27,6 +27,7 @@ function RegisterForm() {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
+  const [inviteCode, setInviteCode] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -54,7 +55,7 @@ function RegisterForm() {
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password, inviteCode: inviteCode ? inviteCode.toUpperCase() : undefined }),
       });
 
       const data = await response.json();
@@ -153,6 +154,15 @@ function RegisterForm() {
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             autoComplete="new-password"
+            fullWidth
+          />
+
+          <Input
+            label="Invite Code (Optional)"
+            type="text"
+            placeholder="VX-XXXXX"
+            value={inviteCode}
+            onChange={(e) => setInviteCode(e.target.value)}
             fullWidth
           />
         </CardContent>

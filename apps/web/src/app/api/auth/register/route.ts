@@ -7,6 +7,7 @@ const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(60),
   email: z.string().email("Please provide a valid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
+  inviteCode: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { name, email, password } = result.data;
+    const { name, email, password, inviteCode } = result.data;
     const normalizedEmail = email.toLowerCase().trim();
 
     // Check if user already exists
@@ -52,32 +53,65 @@ export async function POST(req: Request) {
 
     // Hash password with high salt rounds
     const passwordHash = await bcrypt.hash(password, 12);
-    const initialCredits = 1000;
+    let initialCredits = 1000;
+    
+    // Check invite code if provided
+    let validInviteCode = null;
+    let collabId = null;
+    if (inviteCode) {
+      const collab = await prisma.collaborator.findUnique({
+        where: { inviteCode }
+      });
+      if (collab && collab.status === "APPROVED") {
+        validInviteCode = inviteCode;
+        collabId = collab.id;
+        initialCredits += 500; // Add 500 bonus credits
+      }
+    }
 
     // Create user and credit transaction atomically
-    const newUser = await prisma.user.create({
-      data: {
-        name,
-        email: normalizedEmail,
-        passwordHash,
-        credits: initialCredits,
-        tier: "FREE",
-        creditTransactions: {
-          create: {
-            amount: initialCredits,
-            type: TransactionType.BONUS,
-            description: "Welcome sign-up bonus credits",
+    const newUser = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name,
+          email: normalizedEmail,
+          passwordHash,
+          credits: initialCredits,
+          tier: "FREE",
+          invitedBy: validInviteCode,
+          creditTransactions: {
+            create: [
+              {
+                amount: 1000,
+                type: TransactionType.BONUS,
+                description: "Welcome sign-up bonus credits",
+              },
+              ...(validInviteCode ? [{
+                amount: 500,
+                type: TransactionType.BONUS,
+                description: `Redeemed invite code: ${validInviteCode}`,
+              }] : [])
+            ],
           },
         },
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        credits: true,
-        tier: true,
-        createdAt: true,
-      },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          credits: true,
+          tier: true,
+          createdAt: true,
+        },
+      });
+
+      if (validInviteCode && collabId) {
+        await tx.collaborator.update({
+          where: { id: collabId },
+          data: { totalInvites: { increment: 1 } }
+        });
+      }
+
+      return user;
     });
 
     return NextResponse.json(
