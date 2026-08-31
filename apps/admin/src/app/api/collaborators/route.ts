@@ -1,15 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma, CollaborationStatus } from "@saas/db";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 
 export async function GET(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (session?.user?.role !== "SUPERADMIN" && session?.user?.role !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status") as CollaborationStatus | null;
 
@@ -30,11 +23,6 @@ export async function GET(req: Request) {
 
 export async function PUT(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (session?.user?.role !== "SUPERADMIN" && session?.user?.role !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const { id, status } = await req.json();
 
     if (!id || !status || !["PENDING", "APPROVED", "REJECTED"].includes(status)) {
