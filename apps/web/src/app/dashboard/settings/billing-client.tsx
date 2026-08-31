@@ -12,7 +12,7 @@ import {
   CardFooter,
   Badge,
 } from "@saas/ui";
-import { CREDIT_PACKS, SUBSCRIPTION_PLANS } from "@/lib/stripe";
+import { CREDIT_PACKS, SUBSCRIPTION_PLANS } from "@/lib/lemonsqueezy";
 
 export interface BillingClientProps {
   readonly currentTier: "FREE" | "CREATOR" | "PRO" | "ENTERPRISE";
@@ -40,13 +40,10 @@ export const BillingClient: React.FC<BillingClientProps> = ({
     setErrorMessage(null);
 
     try {
-      const response = await fetch("/api/stripe/create-checkout-session", {
+      const response = await fetch("/api/lemon/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "subscription",
-          planId,
-        }),
+        body: JSON.stringify({ type: "subscription", planId }),
       });
 
       const data = await response.json();
@@ -71,13 +68,10 @@ export const BillingClient: React.FC<BillingClientProps> = ({
     setErrorMessage(null);
 
     try {
-      const response = await fetch("/api/stripe/create-checkout-session", {
+      const response = await fetch("/api/lemon/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "credit_pack",
-          packId,
-        }),
+        body: JSON.stringify({ type: "credit_pack", packId }),
       });
 
       const data = await response.json();
@@ -102,14 +96,14 @@ export const BillingClient: React.FC<BillingClientProps> = ({
     setErrorMessage(null);
 
     try {
-      const response = await fetch("/api/stripe/customer-portal", {
+      const response = await fetch("/api/lemon/portal", {
         method: "POST",
       });
 
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        setErrorMessage(data.error?.message ?? "Failed to open Stripe Billing Portal.");
+        setErrorMessage(data.error?.message ?? "Failed to open billing portal.");
         setLoadingAction(null);
         return;
       }
@@ -118,7 +112,7 @@ export const BillingClient: React.FC<BillingClientProps> = ({
         window.location.href = data.data.url;
       }
     } catch {
-      setErrorMessage("Network error connecting to Stripe Portal.");
+      setErrorMessage("Network error connecting to billing portal.");
       setLoadingAction(null);
     }
   };
@@ -200,7 +194,7 @@ export const BillingClient: React.FC<BillingClientProps> = ({
                   </svg>
                 }
               >
-                Stripe Customer Portal
+                Manage Subscription
               </Button>
             )}
           </div>
