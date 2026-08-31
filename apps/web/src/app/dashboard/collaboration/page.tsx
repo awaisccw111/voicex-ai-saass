@@ -71,8 +71,8 @@ export default function CollaborationPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       fetchCollab();
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
     }
   };
 
@@ -92,8 +92,8 @@ export default function CollaborationPage() {
       setSuccess("Withdrawal request submitted successfully!");
       setWithdrawAmount("");
       fetchCollab();
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
     }
   };
 
@@ -145,7 +145,7 @@ export default function CollaborationPage() {
       <div className="max-w-xl mx-auto p-8 text-center bg-[#0d1018] rounded-xl border border-gray-800 mt-10">
         <div className="text-4xl mb-4">⏳</div>
         <h2 className="text-xl font-bold mb-2">Application Pending</h2>
-        <p className="text-gray-400">Your application to the partner program is currently under review by our team. We'll get back to you shortly!</p>
+        <p className="text-gray-400">Your application to the partner program is currently under review by our team. We&apos;ll get back to you shortly!</p>
       </div>
     );
   }
