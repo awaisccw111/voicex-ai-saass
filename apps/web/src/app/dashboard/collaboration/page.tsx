@@ -20,6 +20,7 @@ type PayoutReq = {
 type Collaborator = {
   id: string;
   inviteCode: string;
+  bankDetails: string;
   status: CollaborationStatus;
   totalInvites: number;
   totalEarnings: number;
