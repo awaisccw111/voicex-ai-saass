@@ -92,28 +92,61 @@ export const DashboardHeader: React.FC<HeaderProps> = ({
 
       {/* Mobile Drawer Menu */}
       {mobileNavOpen && (
-        <div className="md:hidden border-t border-border/50 bg-card p-4 space-y-2">
-          <p className="text-xs text-muted-foreground mb-2">Signed in as {userName}</p>
-          <Link
-            href="/dashboard/studio"
-            onClick={() => setMobileNavOpen(false)}
-            className="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-muted"
-          >
-            AI Studio
-          </Link>
+        <div className="md:hidden border-t border-border/50 bg-card p-4 space-y-1">
+          <p className="text-xs text-muted-foreground mb-3 px-3">Signed in as {userName}</p>
           <Link
             href="/dashboard"
             onClick={() => setMobileNavOpen(false)}
-            className="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-muted"
+            className={`block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              pathname === "/dashboard" ? "bg-primary text-white" : "hover:bg-muted"
+            }`}
           >
-            Dashboard Overview
+            🔲 Dashboard Overview
+          </Link>
+          <Link
+            href="/dashboard/studio"
+            onClick={() => setMobileNavOpen(false)}
+            className={`block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              pathname === "/dashboard/studio" ? "bg-primary text-white" : "hover:bg-muted"
+            }`}
+          >
+            🎙️ AI Studio
+          </Link>
+          <Link
+            href="/dashboard/voices"
+            onClick={() => setMobileNavOpen(false)}
+            className={`block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              pathname === "/dashboard/voices" ? "bg-primary text-white" : "hover:bg-muted"
+            }`}
+          >
+            👥 Voice Library
+          </Link>
+          <Link
+            href="/dashboard/clone"
+            onClick={() => setMobileNavOpen(false)}
+            className={`block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              pathname === "/dashboard/clone" ? "bg-primary text-white" : "hover:bg-muted"
+            }`}
+          >
+            🔳 Voice Cloning
           </Link>
           <Link
             href="/dashboard/settings"
             onClick={() => setMobileNavOpen(false)}
-            className="block px-3 py-2 rounded-lg text-sm font-medium hover:bg-muted"
+            className={`block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              pathname === "/dashboard/settings" ? "bg-primary text-white" : "hover:bg-muted"
+            }`}
           >
-            Billing & Plans
+            💳 Billing &amp; Plans
+          </Link>
+          <Link
+            href="/dashboard/collaboration"
+            onClick={() => setMobileNavOpen(false)}
+            className={`block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              pathname === "/dashboard/collaboration" ? "bg-primary text-white" : "hover:bg-muted"
+            }`}
+          >
+            🤝 Partner Program <span className="ml-1 text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded">EARN $$</span>
           </Link>
         </div>
       )}

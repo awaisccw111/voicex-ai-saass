@@ -53,6 +53,21 @@ export default function VoiceCloningPage() {
 
   const isUnlocked = userTier !== "FREE";
 
+  // Mic permission state: 'unknown' | 'granted' | 'denied'
+  const [micPermission, setMicPermission] = React.useState<"unknown" | "granted" | "denied">("unknown");
+
+  // Check mic permission on mount
+  React.useEffect(() => {
+    if (typeof navigator !== "undefined" && navigator.permissions) {
+      navigator.permissions.query({ name: "microphone" as PermissionName }).then((result) => {
+        setMicPermission(result.state === "granted" ? "granted" : result.state === "denied" ? "denied" : "unknown");
+        result.onchange = () => {
+          setMicPermission(result.state === "granted" ? "granted" : result.state === "denied" ? "denied" : "unknown");
+        };
+      }).catch(() => { /* ignore */ });
+    }
+  }, []);
+
   // Fetch existing cloned voices & tier
   const fetchClonedVoices = React.useCallback(async () => {
     try {
@@ -84,6 +99,7 @@ export default function VoiceCloningPage() {
     try {
       audioChunksRef.current = [];
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setMicPermission("granted");
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
 
@@ -108,7 +124,8 @@ export default function VoiceCloningPage() {
         setRecordingSeconds((prev) => prev + 1);
       }, 1000);
     } catch {
-      toast.error("Microphone access denied. Please allow microphone permissions.");
+      setMicPermission("denied");
+      toast.error("Microphone access denied. Click the lock icon in your browser address bar to allow microphone access, then try again.");
     }
   };
 
@@ -350,10 +367,21 @@ export default function VoiceCloningPage() {
               {/* Record Tab */}
               {activeTab === "record" && (
                 <div className="p-6 rounded-2xl border border-dashed border-border/80 bg-background/40 flex flex-col items-center justify-center text-center space-y-4">
+
+                  {/* Mic permission denied banner */}
+                  {micPermission === "denied" && (
+                    <div className="w-full p-3 rounded-lg bg-destructive/10 border border-destructive/40 text-left">
+                      <p className="text-xs font-semibold text-destructive mb-1">🚫 Microphone Blocked</p>
+                      <p className="text-xs text-destructive/80">Click the 🔒 lock icon in your browser&apos;s address bar → find Microphone → set to &quot;Allow&quot; → reload the page.</p>
+                    </div>
+                  )}
+
                   <div
                     className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${
                       isRecording
                         ? "bg-destructive text-white animate-pulse shadow-lg ring-8 ring-destructive/20"
+                        : micPermission === "denied"
+                        ? "bg-destructive/20 text-destructive"
                         : "bg-primary/10 text-primary"
                     }`}
                   >
@@ -376,6 +404,14 @@ export default function VoiceCloningPage() {
                       <p className="text-sm font-semibold text-success">
                         Audio sample recorded ({recordingSeconds}s)
                       </p>
+                    ) : micPermission === "unknown" ? (
+                      <p className="text-xs text-muted-foreground">
+                        {isUnlocked
+                          ? "Click \"Start Recording\" — your browser will ask for microphone permission. Click Allow to continue."
+                          : "Upgrade your plan above to enable live microphone voice cloning."}
+                      </p>
+                    ) : micPermission === "denied" ? (
+                      <p className="text-xs text-destructive/80">Microphone access blocked. Follow the steps above to re-enable it.</p>
                     ) : (
                       <p className="text-xs text-muted-foreground">
                         {isUnlocked
@@ -395,9 +431,9 @@ export default function VoiceCloningPage() {
                         variant="primary"
                         size="md"
                         onClick={startRecording}
-                        disabled={!isUnlocked}
+                        disabled={!isUnlocked || micPermission === "denied"}
                       >
-                        🎙️ Start Recording
+                        🎙️ {micPermission === "unknown" ? "Allow Mic & Start Recording" : "Start Recording"}
                       </Button>
                     )}
                   </div>
