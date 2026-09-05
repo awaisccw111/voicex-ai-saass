@@ -40,6 +40,7 @@ export default function VoiceCloningPage() {
   const [audioUrl, setAudioUrl] = React.useState<string | null>(null);
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [activeTab, setActiveTab] = React.useState<"record" | "upload">("record");
+  const [micError, setMicError] = React.useState<string | null>(null);
 
   // Vault state
   const [isCloning, setIsCloning] = React.useState(false);
@@ -81,10 +82,25 @@ export default function VoiceCloningPage() {
       return;
     }
 
+    if (typeof window !== "undefined" && (!navigator?.mediaDevices || !navigator.mediaDevices.getUserMedia)) {
+      setMicError("not_supported");
+      toast.error("Microphone recording is not supported in this browser. Please use the Upload File tab.");
+      return;
+    }
+
     try {
+      setMicError(null);
       audioChunksRef.current = [];
-      // This call natively triggers the browser permission popup on first use
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+
+      // Request stream from browser - triggers native prompt if permission is 'prompt'
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
 
@@ -109,11 +125,31 @@ export default function VoiceCloningPage() {
         setRecordingSeconds((prev) => prev + 1);
       }, 1000);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "";
-      if (msg.includes("Permission denied") || msg.includes("NotAllowed")) {
-        toast.error("Microphone access denied. Go to chrome://settings/content/microphone and allow this site, then reload.");
+      console.error("Microphone recording error:", err);
+      const errorObj = err as { name?: string; message?: string };
+      const errName = errorObj?.name || "";
+      const errMsg = errorObj?.message || (err instanceof Error ? err.message : String(err));
+
+      if (errName === "NotAllowedError" || errMsg.includes("Permission denied") || errMsg.includes("NotAllowed")) {
+        setMicError("permission_denied");
+        toast.error("Microphone access denied. If you recently toggled permission in Chrome, please refresh this page (F5).", {
+          duration: 6000,
+        });
+      } else if (errName === "NotFoundError" || errName === "DevicesNotFoundError") {
+        setMicError("not_found");
+        toast.error("No microphone detected. Please connect a microphone or use the Upload File tab.", {
+          duration: 6000,
+        });
+      } else if (errName === "NotReadableError" || errName === "TrackStartError") {
+        setMicError("not_readable");
+        toast.error("Microphone is in use by another app. Please close other applications and try again.", {
+          duration: 6000,
+        });
       } else {
-        toast.error("Could not access microphone. Please check your device settings.");
+        setMicError("unknown");
+        toast.error(`Could not access microphone (${errName || errMsg || "Unknown error"}). Try the Upload File tab.`, {
+          duration: 6000,
+        });
       }
     }
   };
@@ -315,7 +351,10 @@ export default function VoiceCloningPage() {
               <div className="flex rounded-xl p-1 bg-background/80 border border-border/60">
                 <button
                   type="button"
-                  onClick={() => setActiveTab("record")}
+                  onClick={() => {
+                    setActiveTab("record");
+                    setMicError(null);
+                  }}
                   className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-2 ${
                     activeTab === "record"
                       ? "bg-primary text-primary-foreground shadow-sm"
@@ -334,7 +373,10 @@ export default function VoiceCloningPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveTab("upload")}
+                  onClick={() => {
+                    setActiveTab("upload");
+                    setMicError(null);
+                  }}
                   className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-2 ${
                     activeTab === "upload"
                       ? "bg-primary text-primary-foreground shadow-sm"
@@ -408,6 +450,44 @@ export default function VoiceCloningPage() {
                       </Button>
                     )}
                   </div>
+
+                  {/* Contextual guidance if mic fails */}
+                  {micError === "permission_denied" && (
+                    <div className="w-full text-left p-4 rounded-xl bg-destructive/10 border border-destructive/30 text-xs space-y-2">
+                      <p className="font-semibold text-destructive flex items-center gap-1.5">
+                        <span>⚠️</span> Microphone Access Denied or Pending Reload
+                      </p>
+                      <ul className="list-disc list-inside space-y-1.5 text-muted-foreground text-[11px] leading-relaxed">
+                        <li>
+                          <strong>If you already turned ON Microphone in Chrome:</strong> Simply press <strong>F5 (or Ctrl+R) to refresh this page</strong>, then click <em>Start Recording</em> again.
+                        </li>
+                        <li>
+                          <strong>To see the native Chrome prompt again:</strong> Click the lock/tune icon next to the URL, click <strong>Reset permission</strong>, refresh the page, and click <em>Start Recording</em>.
+                        </li>
+                        <li>
+                          <strong>Alternative:</strong> Click the <strong>Upload File (MP3/WAV)</strong> tab above to directly upload any voice note!
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+
+                  {micError === "not_found" && (
+                    <div className="w-full text-left p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300">
+                      <p className="font-semibold">⚠️ No microphone device detected</p>
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        Please plug in a microphone/headset, or switch to the <strong>Upload File</strong> tab above.
+                      </p>
+                    </div>
+                  )}
+
+                  {micError === "not_readable" && (
+                    <div className="w-full text-left p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300">
+                      <p className="font-semibold">⚠️ Microphone is busy</p>
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        Another application (such as Zoom, Teams, or another tab) is currently using your microphone.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
