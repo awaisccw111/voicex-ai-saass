@@ -15,28 +15,20 @@ export default async function SettingsPage() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    include: {
-      subscriptions: {
-        where: { status: "ACTIVE" },
-        take: 1,
-      },
-    },
   });
 
   if (!user) {
     redirect("/login");
   }
 
-  const activeSub = user.subscriptions[0];
-
   return (
     <div className="space-y-6 max-w-5xl">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-          Billing & Subscription Settings
+          Billing &amp; Plans
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Manage your subscription plans, buy instant credit packs, and update payment methods.
+          Upgrade your plan, buy extra credits, or check your current subscription.
         </p>
       </div>
 
@@ -50,8 +42,8 @@ export default async function SettingsPage() {
         <BillingClient
           currentTier={user.tier}
           credits={user.credits}
-          hasStripeCustomer={Boolean(user.stripeCustomerId)}
-          periodEnd={activeSub?.stripeCurrentPeriodEnd.toLocaleDateString()}
+          userEmail={user.email}
+          userName={user.name ?? "User"}
         />
       </React.Suspense>
     </div>

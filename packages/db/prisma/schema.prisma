@@ -50,6 +50,12 @@ enum PayoutStatus {
   REJECTED
 }
 
+enum UpgradeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id               String           @id @default(cuid())
   email            String           @unique
@@ -69,6 +75,7 @@ model User {
   voiceGenerations    VoiceGeneration[]
   clonedVoices        ClonedVoice[]
   collaborator        Collaborator?
+  upgradeRequests     UpgradeRequest[]
 
   @@index([email])
   @@index([stripeCustomerId])
@@ -213,5 +220,20 @@ model PayoutRequest {
   updatedAt        DateTime     @updatedAt
 
   @@index([collaboratorId])
+  @@index([status])
+}
+
+model UpgradeRequest {
+  id          String               @id @default(cuid())
+  userId      String
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planName    String
+  planPrice   String
+  status      UpgradeRequestStatus @default(PENDING)
+  adminNotes  String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([userId])
   @@index([status])
 }

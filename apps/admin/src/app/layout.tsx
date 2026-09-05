@@ -14,6 +14,7 @@ const NAV = [
   { href: "/generations", label: "📜 Generations" },
   { href: "/transactions", label: "💳 Transactions" },
   { href: "/collaborators", label: "🤝 Collaborators" },
+  { href: "/upgrade-requests", label: "⬆️ Upgrade Requests" },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
